@@ -1,0 +1,98 @@
+
+
+import os
+import sys
+import hashlib
+import shutil
+import json
+from datetime import datetime
+
+REPO_DIR = '.myscm'
+COMMITS_FILE = os.path.join(REPO_DIR, 'commits.json')
+
+def hash_file(filepath):
+    with open(filepath, 'rb') as f:
+        return hashlib.sha1(f.read()).hexdigest()
+
+def init():
+    if not os.path.exists(REPO_DIR):
+        os.makedirs(REPO_DIR)
+        with open(COMMITS_FILE, 'w') as f:
+            json.dump([], f)
+        print("Repository initialized.")
+    else:
+        print("Repository already initialized.")
+
+def commit(filepath):
+    if not os.path.exists(REPO_DIR):
+        print("Repository not initialized. Run `init` first.")
+        return
+
+    if not os.path.exists(filepath):
+        print(f"File not found: {filepath}")
+        return
+
+    file_hash = hash_file(filepath)
+    dest_path = os.path.join(REPO_DIR, file_hash)
+
+    if not os.path.exists(dest_path):
+        shutil.copyfile(filepath, dest_path)
+        print(f"Committed: {filepath}")
+    else:
+        print(f"No changes to commit for {filepath}.")
+
+    # Save commit info
+    with open(COMMITS_FILE, 'r+') as f:
+        commits = json.load(f)
+        commits.append({
+            'file': filepath,
+            'hash': file_hash,
+            'timestamp': datetime.now().isoformat()
+        })
+        f.seek(0)
+        json.dump(commits, f, indent=2)
+
+def log():
+    if not os.path.exists(COMMITS_FILE):
+        print("No commits found.")
+        return
+
+    with open(COMMITS_FILE) as f:
+        commits = json.load(f)
+        for commit in commits:
+            print(f"File: {commit['file']}")
+            print(f"Hash: {commit['hash']}")
+            print(f"Time: {commit['timestamp']}")
+            print('---')
+
+def checkout(file_hash, output_path):
+    src_path = os.path.join(REPO_DIR, file_hash)
+    if os.path.exists(src_path):
+        shutil.copyfile(src_path, output_path)
+        print(f"Checked out to {output_path}")
+    else:
+        print("Commit not found.")
+
+def help_msg():
+    print("Usage:")
+    print("  python myscm.py init")
+    print("  python myscm.py commit <file>")
+    print("  python myscm.py log")
+    print("  python myscm.py checkout <hash> <output_file>")
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        help_msg()
+    else:
+        cmd = sys.argv[1]
+        if cmd == 'init':
+            init()
+        elif cmd == 'commit' and len(sys.argv) == 3:
+            commit(sys.argv[2])
+        elif cmd == 'log':
+            log()
+        elif cmd == 'checkout' and len(sys.argv) == 4:
+            checkout(sys.argv[2], sys.argv[3])
+        else:
+            help_msg()
+
